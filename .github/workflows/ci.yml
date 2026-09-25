@@ -1,0 +1,43 @@
+name: CI Workflow
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Actualizar README
+        run: |
+          BRANCH_NAME="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          echo "Añadida feature: $BRANCH_NAME" >> README.md
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs: Añadida feature $BRANCH_NAME [skip ci]" || echo "Sin cambios"
+          git push origin HEAD:${{ github.ref }} || echo "Push omitido"
+
+  validate-dev:
+    runs-on: self-hosted
+    needs: update-readme
+    steps:
+      - name: Validar token DEV
+        run: |
+          if [ "${{ secrets.DEV_TOKEN }}" = "$LOCAL_DEV_TOKEN" ]; then
+            echo "Token correcto"
+          else
+            echo "Token no coincide"
+            exit 1
+          fi
